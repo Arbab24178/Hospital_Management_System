@@ -1,0 +1,379 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  NURSE
+  RECEPTIONIST
+  PHARMACIST
+  ACCOUNTANT
+  LAB_TECHNICIAN
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum WardType {
+  GENERAL
+  SEMI_PRIVATE
+  PRIVATE
+  ICU
+  NICU
+  EMERGENCY
+}
+
+enum TestStatus {
+  PENDING
+  SAMPLE_COLLECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMode {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  INSURANCE
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           Role     @default(RECEPTIONIST)
+  phone          String?
+  address        String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  doctor         Doctor?
+  labRequests    LabRequest[]    @relation("LabTechnician")
+  createdInvoices Invoice[]      @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Doctor {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  specialization  String
+  qualification   String
+  licenseNumber   String   @unique
+  fee             Float    @default(0)
+  experience      Int      @default(0)
+  availableDays   String   @default("MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY")
+  availableTimeStart String @default("09:00")
+  availableTimeEnd   String @default("17:00")
+  maxAppointments  Int     @default(20)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user           User        @relation(fields: [userId], references: [id])
+  appointments   Appointment[]
+  opdRecords     OPDRecord[]
+  ipdRecords     IPDRecord[]
+  prescriptions  Prescription[]
+  labRequests    LabRequest[]   @relation("ReferringDoctor")
+
+  @@map("doctors")
+}
+
+model Patient {
+  id              String     @id @default(cuid())
+  patientId       String     @unique
+  name            String
+  email           String?
+  phone           String
+  dob             DateTime?
+  age             Int?
+  gender          Gender?
+  bloodGroup      BloodGroup?
+  address         String?
+  emergencyContact String?
+  emergencyPhone  String?
+  medicalHistory  String?
+  allergies       String?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  appointments    Appointment[]
+  opdRecords      OPDRecord[]
+  ipdRecords      IPDRecord[]
+  prescriptions   Prescription[]
+  labRequests     LabRequest[]    @relation("PatientLab")
+  invoices        Invoice[]
+
+  @@map("patients")
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  doctorId    String
+  date        DateTime
+  timeSlot    String
+  status      AppointmentStatus @default(SCHEDULED)
+  type        String            @default("OPD")
+  reason      String?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@map("appointments")
+}
+
+model OPDRecord {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String
+  date        DateTime @default(now())
+  complaint   String
+  diagnosis   String?
+  vitals      String?
+  fee         Float    @default(0)
+  followUpDate DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@map("opd_records")
+}
+
+model IPDRecord {
+  id            String    @id @default(cuid())
+  patientId     String
+  doctorId      String
+  ward          WardType  @default(GENERAL)
+  bedNumber     String
+  admissionDate DateTime  @default(now())
+  expectedDischargeDate DateTime?
+  dischargeDate DateTime?
+  diagnosis     String?
+  treatment     String?
+  notes         String?
+  isDischarged  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient      Patient @relation(fields: [patientId], references: [id])
+  doctor       Doctor  @relation(fields: [doctorId], references: [id])
+  nurseRecords NurseRecord[]
+
+  @@map("ipd_records")
+}
+
+model NurseRecord {
+  id          String   @id @default(cuid())
+  ipdRecordId String
+  nurseName   String
+  date        DateTime @default(now())
+  observation String?
+  medication  String?
+  diet        String?
+  temperature String?
+  bloodPressure String?
+  pulseRate   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  ipdRecord   IPDRecord @relation(fields: [ipdRecordId], references: [id])
+
+  @@map("nurse_records")
+}
+
+model Medicine {
+  id           String   @id @default(cuid())
+  name         String
+  category     String
+  manufacturer String?
+  price        Float    @default(0)
+  stock        Int      @default(0)
+  expiryDate   DateTime?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prescriptionItems PrescriptionItem[]
+  inventoryItems    InventoryItem[]
+
+  @@map("medicines")
+}
+
+model Prescription {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String
+  diagnosis   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  doctor     Doctor             @relation(fields: [doctorId], references: [id])
+  items      PrescriptionItem[]
+
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String   @id @default(cuid())
+  prescriptionId String
+  medicineId     String
+  dosage         String
+  frequency      String
+  duration       String
+  instructions   String?
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  prescription  Prescription @relation(fields: [prescriptionId], references: [id])
+  medicine      Medicine     @relation(fields: [medicineId], references: [id])
+
+  @@map("prescription_items")
+}
+
+model LabTest {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  price       Float    @default(0)
+  normalRange String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  labRequests LabRequest[]
+
+  @@map("lab_tests")
+}
+
+model LabRequest {
+  id              String     @id @default(cuid())
+  patientId       String
+  doctorId        String
+  testId          String
+  technicianId    String?
+  status          TestStatus @default(PENDING)
+  result          String?
+  notes           String?
+  sampleCollectedAt DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  patient    Patient  @relation("PatientLab", fields: [patientId], references: [id])
+  doctor     Doctor   @relation("ReferringDoctor", fields: [doctorId], references: [id])
+  test       LabTest  @relation(fields: [testId], references: [id])
+  technician User?    @relation("LabTechnician", fields: [technicianId], references: [id])
+
+  @@map("lab_requests")
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  invoiceNo    String        @unique
+  patientId    String
+  totalAmount  Float         @default(0)
+  paidAmount   Float         @default(0)
+  dueAmount    Float         @default(0)
+  status       InvoiceStatus @default(PENDING)
+  items        String?
+  notes        String?
+  createdById  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  patient    Patient @relation(fields: [patientId], references: [id])
+  createdBy  User    @relation("CreatedBy", fields: [createdById], references: [id])
+  payments   Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  invoiceId     String
+  amount        Float
+  mode          PaymentMode @default(CASH)
+  transactionId String?
+  notes         String?
+  receivedBy    String?
+  createdAt     DateTime    @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  itemName    String
+  category    String
+  quantity    Int      @default(0)
+  unitPrice   Float    @default(0)
+  supplier    String?
+  reorderLevel Int     @default(10)
+  medicineId  String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  medicine Medicine? @relation(fields: [medicineId], references: [id])
+
+  @@map("inventory_items")
+}

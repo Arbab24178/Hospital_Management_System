@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "browsing-with-playwright": {
+      "source": "bilalmk/todo_correct",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/mjs/browsing-with-playwright/SKILL.md",
+      "computedHash": "f73daf75e38650c202e61f652a26578db157f8423e8bcf283bcd93b441641461"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "6337038fe1fe6bbe1b9f252ab678ee575859190bab6f0f246f4061824eb40875"
+    }
+  }
+}
